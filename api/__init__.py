@@ -35,10 +35,10 @@ def create_app():
 
     logger.debug('Starting RESTful API on URL {}'.format(globals.REST_URL))
     app.register_blueprint(rest, url_prefix=globals.REST_URL)
-    soap_wsgi = create_soap_wsgi()
+
     logger.debug('Starting SOAP API on URL {}'.format(globals.SOAP_URL))
     app.wsgi_app = DispatcherMiddleware(app.wsgi_app,
-            {globals.SOAP_URL : soap_wsgi})
+            {globals.SOAP_URL : create_soap_wsgi()})
 
     return app
 

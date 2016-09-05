@@ -115,4 +115,6 @@ class UTPService(ServiceBase):
     @srpc(Iterable(Order, min_occurs=1, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
     def addOrUpdateOrders(orders):
+        for order in orders:
+            self.app.db.create_or_update_order(order)
         return Response(0, 'OK')

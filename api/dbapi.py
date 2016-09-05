@@ -11,93 +11,41 @@ class DBAPI(object):
     def __init__(self, minconn, maxconn, *args, **kwargs):
         self._db = DB(QUERIES, minconn, maxconn, *args, **kwargs)
 
-    def api_method(func):
-        def _func(self, **kwargs):
-            params = kwargs.keys()
-            values = kwargs
-            got_class = False
-            logger.debug('Вызван метод {0}. Параметры: {1}'\
-                .format(func.__name__, tuple(params)))
+    def create_address(self, address):
+        self._db.create_city(city=address.addressPlace.placeCity)
+        self._db.create_place(place=address.addressPlace)
+        self._db.create_address(address=address)
 
-            if len(params) == 1 and hasattr(list(kwargs.values())[0],
-                    '__dict__'):
-                got_class = True
-                values = list(kwargs.values())[0].__dict__
+    def create_passenger(self, passenger):
+        self._db.create_passenger(passenger=passenger)
 
-            result = None
-            try:
-                result = self._db._execute_api_method(func.__name__, **values)
-            except:
-                pass
+    def create_order(self, order):
+        self._db.create_order(order=order)
+        for s in order.orderServices:
+            s._order = order._id
 
-            if got_class:
-                list(kwargs.values())[0]._id = result
-            else:
-                return result
+    def create_service(self, service):
+        self._db.create_service(service=service)
 
-        return _func
+    def add_addresses(self, service):
+        for i, address in enumerate(service.serviceAddresses):
+            self.create_address(address)
+            self._db.add_address_to_service(
+                    serviceID=service._id,
+                    addressID=address._id,
+                    serial = i+1)
 
-    @api_method
-    def create_city(self, **kwargs):
-    """ parameters:
-            City()
-        or
-            cityName: Unicode(255)
-            cityTZDeltaSeconds: Integer(ge=-43200, le=43200)
-    """
-        pass
+    def add_passengers(self, service):
+        for i, passenger in enumerate(service.servicePassengers):
+            self.create_passenger(passenger)
+            self._db.add_passenger_to_service(
+                    serviceID=service._id,
+                    passengerID=passenger._id,
+                    serial = i+1)
 
-    @api_method
-    def create_place(self, **kwargs):
-    """ parameters:
-            Place()
-        or
-            placeCity: City()
-            placeName: Mandatory.Unicode(255)
-            placeType: PlaceType (0, 1 or 2)
-    """
-        pass
-
-    @api_method
-    def create_address(self, **kwargs):
-    """ parameters:
-            address()
-        or
-            addressPlace: Place()
-            addressStreet: Unicode(255)
-            addressHouse: Unicode(255)
-            addressPorch: Unicode(255)
-            addressInfo: Unicode
-    """
-        pass
-
-    @api_method
-    def create_passenger(self, **kwargs):
-    """ parameters:
-            Passenger()
-        or
-            cityName: Unicode(255)
-            cityTZDeltaSeconds: Integer(ge=-43200, le=43200)
-    """
-        pass
-
-    @api_method
-    def create_order(self, **kwargs):
-        pass
-
-    @api_method
-    def create_service(self, **kwargs):
-        pass
-
-    @api_method
-    def add_address_to_service(self, **kwargs):
-        """ all named parameters only (look at api.globals.queries)
-        """
-        pass
-
-    @api_method
-    def add_passenger_to_service(self, **kwargs):
-        """ all named parameters only (look at api.globals.queries)
-        """
-        pass
-
+    def create_or_update_order(self, order):
+        self.create_order(order)
+        for service in order.orderServices:
+            self.create_service(service)
+            self.add_addresses(service)
+            self.add_passengers(service)

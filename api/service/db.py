@@ -12,6 +12,32 @@ LEVELS = dict(
         ERROR = logging.ERROR
     )
 
+def api_method(name, func):
+    def _func(self, **kwargs):
+        params = kwargs.keys()
+        values = kwargs
+        got_class = False
+        logger.debug('Вызван метод {0}. Параметры: {1}'\
+            .format(name, tuple(params)))
+
+        if len(params) == 1 and hasattr(list(kwargs.values())[0],
+                '__dict__'):
+            got_class = True
+            values = list(kwargs.values())[0].__dict__
+
+        result = self.execute_api_method(name, **values)
+#        try:
+#            result = self.execute_api_method(name, **values)
+#        except:
+#            result = None
+
+        if got_class:
+            list(kwargs.values())[0]._id = result
+        else:
+            return result
+
+    return _func
+
 
 class Result(object):
 
@@ -41,9 +67,11 @@ class DB(object):
         logger.debug('Creating PostgreSQL connection pool total '\
                 'capacity %d with minimal %d connections'%(maxconn, minconn))
         self.queries = queries
+
+        for method in self.queries.keys():
+            setattr(DB, method, api_method(method, lambda self, **kwargs: None))
+
         self.pool = ThreadedConnectionPool(minconn, maxconn, *args, **kwargs)
-        for method in sefl.queries.keys():
-            self.__dict__[method] = _empty()
 
     @contextmanager
     def _connect(self):
@@ -56,7 +84,7 @@ class DB(object):
             logger.debug('Putting connection back to the pool')
             self.pool.putconn(con)
 
-    def _execute_api_method(self, method_name, **kwargs):
+    def execute_api_method(self, method_name, **kwargs):
         if method_name not in self.queries:
             logger.error("DBAPI: Нет такого метода '{}'"
                 .format(method_name))
@@ -71,34 +99,3 @@ class DB(object):
             result = Result(cursor.fetchone())
             logger.log(LEVELS[result.type], 'DBAPI: {}'.format(result))
             return result.value
-
-    def api_method(func):
-        def _func(self, **kwargs):
-            params = kwargs.keys()
-            values = kwargs
-            got_class = False
-            logger.debug('Вызван метод {0}. Параметры: {1}'\
-                .format(func.__name__, tuple(params)))
-
-            if len(params) == 1 and hasattr(list(kwargs.values())[0],
-                    '__dict__'):
-                got_class = True
-                values = list(kwargs.values())[0].__dict__
-
-            result = None
-            try:
-                result = self._execute_api_method(func.__name__, **values)
-            except:
-                pass
-
-            if got_class:
-                list(kwargs.values())[0]._id = result
-            else:
-                return result
-
-        return _func
-
-    @api_method
-    def _empty(self):
-        logger.debug('_empty method')
-        pass
