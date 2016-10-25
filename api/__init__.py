@@ -7,6 +7,7 @@ from spyne.application import Application
 from spyne.server.wsgi import WsgiApplication
 
 from werkzeug.wsgi import DispatcherMiddleware
+from werkzeug.contrib.fixers import LighttpdCGIRootFix
 
 import api.default
 from api.rest import rest
@@ -40,6 +41,7 @@ def create_app():
     app.wsgi_app = DispatcherMiddleware(app.wsgi_app,
             {globals.SOAP_URL : create_soap_wsgi()})
 
+    app.wsgi_app = LighttpdCGIRootFix(app.wsgi_app)
     return app
 
 app= create_app()
