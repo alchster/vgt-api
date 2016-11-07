@@ -2,7 +2,6 @@ import logging
 
 from spyne.decorator import srpc
 from spyne.service import ServiceBase
-from spyne.protocol.soap.soap11 import Soap11
 from spyne.model.enum import Enum
 from spyne.model.complex import Iterable, ComplexModel, Mandatory as ComplexMandatory
 from spyne.model.primitive import Mandatory, Duration, DateTime, Integer, UnsignedInteger, Unicode, Boolean, Uuid
@@ -61,13 +60,13 @@ class Service(ComplexModelBase):
     serviceType = ServiceType
     serviceStatus = Status
     serviceCarClassID = ID
-    servicePassengers = Iterable(Passenger, min_occurs=1, nillable=False)
+    servicePassengers = Iterable(Passenger, nillable=False)
     servicePassengersCount = Mandatory.UnsignedInteger      # число пассажиров может отличаться от списка выше
 
     serviceMeetDateTime = Mandatory.DateTime
     serviceMeetPlate = Unicode
 
-    serviceAddresses = Iterable(Address, min_occurs=2)
+    serviceAddresses = Iterable(Address)
 
     serviceBaggage = Unicode
     serviceBabyChairs = Mandatory.UnsignedInteger()
@@ -79,7 +78,7 @@ class Order(ComplexModelBase):
     orderPartnerID = ID
     orderManagerID = ID
     orderCreateDateTime = Mandatory.DateTime
-    orderServices = Iterable(Service, min_occurs=1, nillable=False)
+    orderServices = Iterable(Service, nillable=False)
     orderFeedbackURL = Unicode(255)
 
 
@@ -87,32 +86,35 @@ class Response(ComplexModel):
     responseCode = Mandatory.UnsignedInteger
     responseMessage = Mandatory.Unicode
 
+    def __init__(self, c, m):
+        self.responseCode = c
+        self.responseMessage = m
+
 
 # описание протокола
 class UTPService(ServiceBase):
-    __in_protocol__ = Soap11(validator='lxml')
-    __out_protocol__ = Soap11()
 
     @srpc(_returns=ComplexMandatory(Response, type_name='Response'))
     def hello():
+        logger.debug('hello called')
         return Response(0, 'OK')
 
-    @srpc(Iterable(City, min_occurs=1, nillable=False),
+    @srpc(Iterable(City, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
     def updateCities(cities):
         return Response(0, 'OK')
 
-    @srpc(Iterable(CarClass, min_occurs=1, nillable=False),
+    @srpc(Iterable(CarClass, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
     def updateCarClasses(classes):
         return Response(0, 'OK')
 
-    @srpc(Iterable(Place, min_occurs=1, nillable=False),
+    @srpc(Iterable(Place, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
     def updatePlaces(places):
         return Response(0, 'OK')
 
-    @srpc(Iterable(Order, min_occurs=1, nillable=False),
+    @srpc(Iterable(Order, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
     def addOrUpdateOrders(orders):
         for order in orders:

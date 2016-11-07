@@ -4,6 +4,7 @@ from flask import Flask
 from flask_spyne import Spyne
 
 from spyne.application import Application
+from spyne.protocol.soap.soap11 import Soap11
 from spyne.server.wsgi import WsgiApplication
 
 from werkzeug.wsgi import DispatcherMiddleware
@@ -25,7 +26,9 @@ def create_soap_wsgi():
     soap = Application(
             [UTPService],
             tns=globals.TARGET_NAMESPACE,
-            name=globals.NAME)
+            name=globals.NAME,
+            in_protocol=Soap11(validator='lxml'),
+            out_protocol=Soap11(),)
     return WsgiApplication(soap)
 
 def create_app():
