@@ -1,11 +1,13 @@
 import logging
+import datetime
 
-from spyne.decorator import srpc
+from spyne.decorator import rpc, srpc
 from spyne.service import ServiceBase
 from spyne.model.enum import Enum
 from spyne.model.complex import Iterable, ComplexModel, Mandatory as ComplexMandatory
 from spyne.model.primitive import Mandatory, Duration, DateTime, Integer, UnsignedInteger, Unicode, Boolean, Uuid
 
+from api.service.utils import to_dates, to_datetime
 
 logger = logging.getLogger(__name__)
 ID = Mandatory.UnsignedInteger(type_name='ID')
@@ -15,11 +17,17 @@ ServiceType = Mandatory.Integer(ge=0, le=1, type_name='ServiceType')    # 0 - т
 
 
 class ComplexModelBase(ComplexModel):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        ComplexModel(self, *args, **kwargs)
         self._id = ''
 
     def __str__(self):
         return self._id
+
+
+class MandatoryDateTime(Mandatory.DateTime):
+    def __init__(cls, *args, **kwargs):
+        print("------------------------------------ here --------------------------------------")
 
 
 class CarClass(ComplexModelBase):
@@ -48,7 +56,7 @@ class Address(ComplexModelBase):
 
 class Passenger(ComplexModelBase):
     passengerName = Mandatory.Unicode(255)
-    passengerPantronymic = Unicode(255)
+    passengerPatronymic = Unicode(255)
     passengerSurname = Unicode(255)
     passengerPhone = Mandatory.Unicode(255)
     passengerDescription = Unicode
@@ -63,7 +71,7 @@ class Service(ComplexModelBase):
     servicePassengers = Iterable(Passenger, nillable=False)
     servicePassengersCount = Mandatory.UnsignedInteger      # число пассажиров может отличаться от списка выше
 
-    serviceMeetDateTime = Mandatory.DateTime
+    serviceMeetDateTime = MandatoryDateTime
     serviceMeetPlate = Unicode
 
     serviceAddresses = Iterable(Address)
@@ -77,7 +85,7 @@ class Order(ComplexModelBase):
     orderID = ID
     orderPartnerID = ID
     orderManagerID = ID
-    orderCreateDateTime = Mandatory.DateTime
+    orderCreateDateTime = MandatoryDateTime
     orderServices = Iterable(Service, nillable=False)
     orderFeedbackURL = Unicode(255)
 
@@ -91,8 +99,25 @@ class Response(ComplexModel):
         self.responseMessage = m
 
 
+class DatesRange(object):
+    dateFrom = DateTime
+    dateTo = DateTime
+
+    def __init__(self, f, t):
+        self.dateFrom, self.dateTo = to_dates(f, t)
+        self.get_data = True
+
+
 # описание протокола
 class UTPService(ServiceBase):
+
+    @srpc(_returns=DateTime)
+    def utc():
+        return datetime.datetime.utcnow()
+
+    @srpc(_returns=DateTime)
+    def now():
+        return datetime.datetime.now()
 
     @srpc(_returns=ComplexMandatory(Response, type_name='Response'))
     def hello():
@@ -114,9 +139,19 @@ class UTPService(ServiceBase):
     def updatePlaces(places):
         return Response(0, 'OK')
 
-    @srpc(Iterable(Order, nillable=False),
+    @rpc(Iterable(Order, nillable=False),
           _returns=ComplexMandatory(Response, type_name='Response'))
-    def addOrUpdateOrders(orders):
+    def addOrUpdateOrders(self, orders):
         for order in orders:
             self.app.db.create_or_update_order(order)
         return Response(0, 'OK')
+
+    @rpc(DateTime, DateTime,
+          _returns=Iterable(Order))
+    def getOrders(self, dateFrom, dateTo):
+        orders = self.app.db.get_orders(DatesRange(dateFrom, dateTo))
+        for order in orders:
+            order['orderCreateDateTime'] = to_datetime(order['orderCreateDateTime'])
+            for service in order['orderServices']:
+                service['serviceMeetDateTime'] = to_datetime(service['serviceMeetDateTime'])
+        return orders

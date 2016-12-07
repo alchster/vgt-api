@@ -25,13 +25,13 @@ def api_method(name, func):
             got_class = True
             values = list(kwargs.values())[0].__dict__
 
-        result = self.execute_api_method(name, **values)
-#        try:
-#            result = self.execute_api_method(name, **values)
-#        except:
-#            result = None
+        try:
+            result = self.execute_api_method(name, **values)
+        except Exception as e:
+            logger.error("ОШИБКА. %s", e)
+            result = None
 
-        if got_class:
+        if got_class and not 'get_data' in values:
             list(kwargs.values())[0]._id = result
         else:
             return result
@@ -64,24 +64,25 @@ class Result(object):
 class DB(object):
 
     def __init__(self, queries, minconn, maxconn, *args, **kwargs):
-        logger.debug('Creating PostgreSQL connection pool total '\
-                'capacity %d with minimal %d connections'%(maxconn, minconn))
         self.queries = queries
 
         for method in self.queries.keys():
             setattr(DB, method, api_method(method, lambda self, **kwargs: None))
+            logger.debug("Добавлен метод API базы данных: {}".format(method))
 
         self.pool = ThreadedConnectionPool(minconn, maxconn, *args, **kwargs)
+        logger.debug('Создан пул соеднинений с базой данных размером {}'\
+                'и минимальным количеством соединений {}'.format(maxconn, minconn))
 
     @contextmanager
     def _connect(self):
-        logger.debug('Getting connection from pool')
+        logger.debug('Резервируется соединение с базой данных')
         con = self.pool.getconn()
         try:
             yield con.cursor()
             con.commit()
         finally:
-            logger.debug('Putting connection back to the pool')
+            logger.debug('Освобождается соединение с базой данных')
             self.pool.putconn(con)
 
     def execute_api_method(self, method_name, **kwargs):
@@ -93,9 +94,17 @@ class DB(object):
         with self._connect() as cursor:
             logger.info("DBAPI: Вызов '{}'".format(method_name))
             params = self.queries[method_name].format(**kwargs)
-            query = "select {0}({1});".format(method_name, params)
+            if 'get_data' not in kwargs:
+                query = "select {0}({1});".format(method_name, params)
+            else:
+                query = "select * from {0}({1});".format(method_name, params)
             logger.debug('ЗАПРОС: {}'.format(query))
             cursor.execute(query)
-            result = Result(cursor.fetchone())
-            logger.log(LEVELS[result.type], 'DBAPI: {}'.format(result))
-            return result.value
+            if 'get_data' not in kwargs:
+                result = Result(cursor.fetchone())
+                logger.log(LEVELS[result.type], 'DBAPI: {}'.format(result))
+                return result.value
+            return cursor.fetchall()
+
+#    def get_orders(date_from, date_to):
+#        with self._connect() as cursor:

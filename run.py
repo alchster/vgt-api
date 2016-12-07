@@ -10,4 +10,4 @@ if len(sys.argv) > 1:
     except:
         pass
 
-app.run('0.0.0.0', port=port)
+app.run('127.0.0.1', port=port)

@@ -1,4 +1,6 @@
 import logging
+import datetime
+import json
 
 from api.service.db import DB
 from api.globals.queries import QUERIES
@@ -49,3 +51,12 @@ class DBAPI(object):
             self.create_service(service)
             self.add_addresses(service)
             self.add_passengers(service)
+
+    def get_orders(self, dates_range):
+        try:
+            tmp = self._db.get_orders_json(dates=dates_range)
+            orders = tmp[0][0]
+        except Exception as e:
+            logger.error("DBAPI: {}".format(e))
+            orders = None
+        return orders

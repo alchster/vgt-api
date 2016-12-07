@@ -22,5 +22,7 @@ QUERIES = dict(
 
         add_address_to_service = "'{serviceID}', '{addressID}', {serial}",
 
-        add_passenger_to_service = "'{serviceID}', '{passengerID}', {serial}"
+        add_passenger_to_service = "'{serviceID}', '{passengerID}', {serial}",
+
+        get_orders_json = "'{dateFrom}', '{dateTo}'"
     )

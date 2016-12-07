@@ -21,7 +21,7 @@ import config as globals
 logger = logging.getLogger(__name__)
 
 
-def create_soap_wsgi():
+def create_soap_wsgi(db):
     logger.debug('Creating SOAP interface')
     soap = Application(
             [UTPService],
@@ -29,6 +29,7 @@ def create_soap_wsgi():
             name=globals.NAME,
             in_protocol=Soap11(validator='lxml'),
             out_protocol=Soap11(),)
+    soap.db = db
     return WsgiApplication(soap)
 
 def create_app():
@@ -42,7 +43,7 @@ def create_app():
 
     logger.debug('Starting SOAP API on URL {}'.format(globals.SOAP_URL))
     app.wsgi_app = DispatcherMiddleware(app.wsgi_app,
-            {globals.SOAP_URL : create_soap_wsgi()})
+            {globals.SOAP_URL : create_soap_wsgi(app.db)})
 
     app.wsgi_app = LighttpdCGIRootFix(app.wsgi_app)
     return app
